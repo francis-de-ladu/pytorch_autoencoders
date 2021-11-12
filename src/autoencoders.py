@@ -1,3 +1,4 @@
+import argparse
 from functools import partial
 
 import torch
@@ -64,23 +65,10 @@ class Decoder(nn.Module):
         return x
 
 
-class AutoEncoder(nn.Module):
+class VanillaAE(nn.Module):
     def __init__(self, h_dim):
         super().__init__()
-        self.name = 'autoencoder'
-        self.encoder = Encoder(h_dim)
-        self.decoder = Decoder(h_dim)
-
-    def forward(self, x):
-        x = self.encoder(x)
-        x = self.decoder(x)
-        return x
-
-
-class DenoisingAE(nn.Module):
-    def __init__(self, h_dim):
-        super().__init__()
-        self.name = 'denoising'
+        self.name = 'vanilla'
         self.encoder = Encoder(h_dim)
         self.decoder = Decoder(h_dim)
 
@@ -115,17 +103,38 @@ def contractive_loss(model, mse_loss, lamda):
 
 
 if __name__ == '__main__':
+    parser = argparse.ArgumentParser(
+        description='Train some encoder model on the MNIST dataset.')
+    parser.add_argument('--ae', type=str, default='vanilla')
+    parser.add_argument('--h_dim', type=int, default=16)
+    parser.add_argument('--lambda', dest='lamda', type=float, default=1e-3)
+    parser.add_argument('--noise', type=float, default=0)
+    args = parser.parse_args()
+    print(args)
+
+    assert args.ae in ('vanilla', 'denoising', 'contractive')
+    if args.ae == 'denoising':
+        assert args.noise > 0, '`noise` must be greater than 0 for denoising AE'
+
+    # get device (cuda if available)
     device = get_device()
     print(f'Currently using `{device}` device.')
 
+    # set seed and get splits
     torch.manual_seed(2021)
     train_loader, valid_loader, test_loader = load_dataset()
 
-    model = AutoEncoder(16)
+    # instantiate the model
+    if args.ae in ('vanilla', 'denoising'):
+        model = VanillaAE(args.h_dim)
+        loss_fn = nn.MSELoss(reduction='sum')
+    elif args.ae == 'contractive':
+        model = ContractiveAE(args.h_dim)
+        mse_loss = nn.MSELoss(reduction='sum')
+        loss_fn = partial(contractive_loss(model, mse_loss, args.lamda))
     model.to(device)
 
-    loss_fn = nn.MSELoss(reduction='sum')
     optimizer = optim.Adam(model.parameters(), lr=1e-3)
 
     train(model, device, loss_fn, optimizer,
-          train_loader, valid_loader, epochs=20, noisy=False)
+          train_loader, valid_loader, epochs=20, noise=args.noise)

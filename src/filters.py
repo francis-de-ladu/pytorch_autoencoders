@@ -1,3 +1,4 @@
+import argparse
 import os
 
 import cv2
@@ -56,7 +57,7 @@ if __name__ == '__main__':
     base_img = np.random.uniform(.2, .8, (1, 28, 28))
 
     lr = 0.01
-    upsampling = 1.18
+    upsampling = 1.2
 
     save_dir = '../filters'
     os.makedirs(save_dir, exist_ok=True)
