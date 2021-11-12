@@ -6,12 +6,12 @@ import matplotlib.pyplot as plt
 import numpy as np
 import torch
 from autoencoder import AutoEncoder
-from torch import Tensor, autograd, nn, optim
+from torch import autograd, nn, optim
 from utils.setup import get_device
 
 
 class FeatureExtractor(nn.Module):
-    def __init__(self, model, layers):
+    def __init__(self, model, device, layers):
         super().__init__()
         self.model = model
         self.layers = layers
@@ -42,8 +42,8 @@ def extract_conv_layers(model):
 if __name__ == '__main__':
     device = get_device()
 
-    model = AutoEncoder(256)
-    model.load_state_dict(torch.load('../models/denoising.model'))
+    model = AutoEncoder(8, 'denoising')
+    model.load_state_dict(torch.load(f'../models/{model.name}.model'))
     model.to(device)
     model.eval()
 
@@ -51,29 +51,31 @@ if __name__ == '__main__':
         params.requires_grad = False
 
     conv_layers = extract_conv_layers(model)
-    feat_extractor = FeatureExtractor(model, conv_layers)
+    feat_extractor = FeatureExtractor(model, device, conv_layers)
+    feat_extractor.to(device)
 
     base_img = np.random.uniform(.2, .8, (1, 28, 28))
 
-    lr = 0.1
-    upsampling = 1.25
+    lr = 0.01
+    upsampling = 1.18
 
     save_dir = '../filters'
     os.makedirs(save_dir, exist_ok=True)
 
     for layer_pos, layer in enumerate(conv_layers):
-        # scope = [3, 5, 12, 14, 28][layer_pos]
-        # num_upsampling = int(np.round(np.log(28 / scope) / np.log(upsampling)))
-        # print(num_upsampling)
-        num_upsampling = 5
-        for filtr in range(8):
-            img = Tensor(base_img)
-            for i in range(num_upsampling + 1):
-                for step in range(100):
+        num_upsampling = 6
+        num_filters = feat_extractor._features[layer].shape[1] if len(
+            feat_extractor._features[layer].shape) > 1 else 8
+        for filtr in range(num_filters):
+            upsamplings = np.ndarray([28, (num_upsampling + 1) * 28])
+            upsamplings[:, :28] = base_img
+            img = torch.Tensor(base_img).to(device)
+            for i in range(num_upsampling):
+                for step in range(25):
                     # preparation
                     img_var = autograd.Variable(img[None], requires_grad=True)
-                    optimizer = optim.Adam(
-                        [img_var], lr=lr, weight_decay=1e-6)
+                    img_var.to(device)
+                    optimizer = optim.Adam([img_var], lr=lr, weight_decay=1e-6)
 
                     # forward pass
                     feat_extractor.model(img_var)
@@ -85,6 +87,7 @@ if __name__ == '__main__':
                     optimizer.step()
 
                 img = img_var.detach().cpu().numpy()[0]
+                upsamplings[:, (i + 1) * 28:(i + 2) * 28] = img[0]
                 new_size = int(img.shape[-1] * upsampling)
                 delta = (new_size - 28) // 2
                 img[0] = cv2.resize(
@@ -92,11 +95,14 @@ if __name__ == '__main__':
                     (new_size, new_size),
                     interpolation=cv2.INTER_CUBIC
                 )[delta:-(delta + 1), delta:-(delta + 1)]
-                img[0] = cv2.blur(img[0], (4, 4))
-                img = Tensor(img)
+                img[0] = cv2.blur(img[0], (5, 5))
+                img = torch.Tensor(img).to(device)
 
             # plot filter state
             img_np = img_var.detach().cpu().numpy()[0][0]
             save_path = f'{save_dir}/layer_{layer}__filter_{filtr}.png'
-            plt.imshow(img_np, cmap='gray')
+            plt.imshow(upsamplings, cmap='gray', vmin=0, vmax=1)
+            plt.title(f'Layer_{layer_pos} : Filter_{filtr}')
+            plt.xticks([])
+            plt.yticks([])
             plt.savefig(save_path)

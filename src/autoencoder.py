@@ -10,24 +10,18 @@ class Encoder(nn.Module):
         self.encoder_conv = nn.Sequential(
             nn.Conv2d(1, 8, 3, stride=2, padding=1),
             nn.ReLU(True),
-            nn.Conv2d(8, 16, 3, stride=1, padding=1),
+            nn.BatchNorm2d(8),
+            nn.Conv2d(8, 16, 3, stride=2, padding=1),
             nn.ReLU(True),
             nn.BatchNorm2d(16),
-            nn.Conv2d(16, 32, 3, stride=2, padding=1),
-            nn.ReLU(True),
-            nn.Conv2d(32, 64, 3, stride=1, padding=1),
-            nn.ReLU(True),
-            nn.BatchNorm2d(64),
-            nn.Conv2d(64, 128, 3, stride=2, padding=0),
-            nn.ReLU(True),
+            nn.Conv2d(16, 32, 3, stride=2, padding=0),
         )
 
         self.flatten = nn.Flatten()
 
         self.encoder_lin = nn.Sequential(
-            nn.Linear(3 * 3 * 128, 2048),
             nn.ReLU(True),
-            nn.Linear(2048, h_dim)
+            nn.Linear(3 * 3 * 32, h_dim),
         )
 
     def forward(self, x):
@@ -41,28 +35,20 @@ class Decoder(nn.Module):
     def __init__(self, h_dim):
         super().__init__()
         self.decoder_lin = nn.Sequential(
-            nn.Linear(h_dim, 2048),
-            nn.ReLU(True),
-            nn.Linear(2048, 3 * 3 * 128),
+            nn.Linear(h_dim, 3 * 3 * 32),
             nn.ReLU(True)
         )
 
-        self.unflatten = nn.Unflatten(dim=1, unflattened_size=(128, 3, 3))
+        self.unflatten = nn.Unflatten(dim=1, unflattened_size=(32, 3, 3))
 
         self.decoder_conv = nn.Sequential(
             nn.ConvTranspose2d(
-                128, 64, 3, stride=2, padding=0, output_padding=0),
-            nn.BatchNorm2d(64),
-            nn.ReLU(True),
-            nn.ConvTranspose2d(
-                64, 32, 3, stride=1, padding=1, output_padding=0),
-            nn.ReLU(True),
-            nn.ConvTranspose2d(
-                32, 16, 3, stride=2, padding=1, output_padding=1),
+                32, 16, 3, stride=2, padding=0, output_padding=0),
             nn.BatchNorm2d(16),
             nn.ReLU(True),
             nn.ConvTranspose2d(
-                16, 8, 3, stride=1, padding=1, output_padding=0),
+                16, 8, 3, stride=2, padding=1, output_padding=1),
+            nn.BatchNorm2d(8),
             nn.ReLU(True),
             nn.ConvTranspose2d(
                 8, 1, 3, stride=2, padding=1, output_padding=1),
@@ -79,6 +65,7 @@ class Decoder(nn.Module):
 class AutoEncoder(nn.Module):
     def __init__(self, h_dim):
         super().__init__()
+        self.name = 'autoencoder'
         self.encoder = Encoder(h_dim)
         self.decoder = Decoder(h_dim)
 
@@ -102,4 +89,4 @@ if __name__ == '__main__':
     optimizer = optim.Adam(model.parameters(), lr=1e-3)
 
     train(model, device, loss_fn, optimizer,
-          train_loader, valid_loader, epochs=20, noisy=False)
+          train_loader, valid_loader, epochs=20)

@@ -1,7 +1,6 @@
 import torch
 import torchvision
-from sklearn.model_selection import train_test_split
-from torch.utils.data import DataLoader
+from torch.utils.data import DataLoader, random_split
 from torchvision import transforms
 
 
@@ -21,8 +20,7 @@ def load_dataset(data_path='../data', batch_size=64, valid_size=5000, normalize=
 
     train = torchvision.datasets.MNIST(
         data_path, train=True, download=True, transform=transform)
-    train, valid = train_test_split(
-        train, test_size=valid_size, random_state=42)
+    train, valid = random_split(train, [len(train) - valid_size, valid_size])
 
     test = torchvision.datasets.MNIST(
         data_path, train=False, download=True, transform=transform)

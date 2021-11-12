@@ -8,7 +8,7 @@ from utils.test import evaluate
 from utils.visuals import plot_reconst
 
 
-def train(model, device, loss_fn, optimizer, train_loader, eval_loader, epochs=10, noisy=False):
+def train(model, device, loss_fn, optimizer, train_loader, eval_loader, epochs=10):
     epoch_losses = []
     best_epoch = {'epoch': 0, 'loss': np.inf}
     for epoch in tqdm(range(epochs)):
@@ -19,7 +19,7 @@ def train(model, device, loss_fn, optimizer, train_loader, eval_loader, epochs=1
             orig = orig.to(device)
 
             # forward pass
-            if noisy:
+            if model.name == 'denoising':
                 with_noise = add_noise(orig)
                 reconst = model(with_noise)
             else:
@@ -46,13 +46,13 @@ def train(model, device, loss_fn, optimizer, train_loader, eval_loader, epochs=1
         print(f'Train loss: {mean_epoch_loss}')
         print(f'Eval loss: {eval_loss}')
 
-        plot_reconst(model, device, eval_loader, epoch, noisy=noisy)
+        plot_reconst(model, device, eval_loader, epoch)
 
 
 def save_if_best(model, epoch, eval_loss, best_epoch, save_dir='../models'):
     if eval_loss < best_epoch['loss']:
         os.makedirs(save_dir, exist_ok=True)
-        save_path = f'{save_dir.rstrip("/")}/denoising.model'
+        save_path = f'{save_dir.rstrip("/")}/{model.name}.model'
         torch.save(model.state_dict(), save_path)
         best_epoch.update({'epoch': epoch, 'loss': eval_loss})
     return best_epoch
