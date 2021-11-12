@@ -3,7 +3,8 @@ from functools import partial
 
 import torch
 from torch import nn, optim
-from utils.setup import get_device, load_dataset
+from utils.data import load_dataset
+from utils.misc import get_device
 from utils.train import train
 
 

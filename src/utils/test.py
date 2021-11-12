@@ -1,5 +1,5 @@
 import numpy as np
-from utils.setup import get_device
+from utils.misc import get_device
 
 
 def evaluate(model, device, loss_fn, eval_loader):

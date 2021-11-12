@@ -6,7 +6,7 @@ import numpy as np
 import torch
 from autoencoders import AutoEncoder
 from torch import autograd, nn, optim
-from utils.setup import get_device
+from utils.misc import get_device
 
 
 class FeatureExtractor(nn.Module):
