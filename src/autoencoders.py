@@ -66,9 +66,9 @@ class Decoder(nn.Module):
 
 
 class VanillaAE(nn.Module):
-    def __init__(self, h_dim):
+    def __init__(self, h_dim, name):
         super().__init__()
-        self.name = 'vanilla'
+        self.name = name
         self.encoder = Encoder(h_dim)
         self.decoder = Decoder(h_dim)
 
@@ -105,16 +105,22 @@ def contractive_loss(model, mse_loss, lamda):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(
         description='Train some encoder model on the MNIST dataset.')
-    parser.add_argument('--ae', type=str, default='vanilla')
     parser.add_argument('--h_dim', type=int, default=16)
-    parser.add_argument('--lambda', dest='lamda', type=float, default=1e-3)
-    parser.add_argument('--noise', type=float, default=0)
+    parser.add_argument('--epochs', type=int, default=20)
+    parser.add_argument('--lr', type=float, default=1e-3)
+
+    subparsers = parser.add_subparsers(dest='ae')
+    vanilla_parser = subparsers.add_parser('vanilla')
+    denoising_parser = subparsers.add_parser('denoising')
+    contractive_parser = subparsers.add_parser('contractive')
+
+    denoising_parser.add_argument('--noise', type=float, default=0.5)
+    contractive_parser.add_argument(
+        '--lambda', type=float, dest='lamda', default=1e-3)
+    contractive_parser.add_argument('--noise', type=float, default=0)
+
     args = parser.parse_args()
     print(args)
-
-    assert args.ae in ('vanilla', 'denoising', 'contractive')
-    if args.ae == 'denoising':
-        assert args.noise > 0, '`noise` must be greater than 0 for denoising AE'
 
     # get device (cuda if available)
     device = get_device()
@@ -125,16 +131,15 @@ if __name__ == '__main__':
     train_loader, valid_loader, test_loader = load_dataset()
 
     # instantiate the model
+    loss_fn = nn.MSELoss(reduction='sum')
     if args.ae in ('vanilla', 'denoising'):
-        model = VanillaAE(args.h_dim)
-        loss_fn = nn.MSELoss(reduction='sum')
+        model = VanillaAE(args.h_dim, name=args.ae)
     elif args.ae == 'contractive':
         model = ContractiveAE(args.h_dim)
-        mse_loss = nn.MSELoss(reduction='sum')
-        loss_fn = partial(contractive_loss(model, mse_loss, args.lamda))
+        loss_fn = partial(contractive_loss(model, loss_fn, args.lamda))
     model.to(device)
 
-    optimizer = optim.Adam(model.parameters(), lr=1e-3)
+    optimizer = optim.Adam(model.parameters(), lr=args.lr)
 
-    train(model, device, loss_fn, optimizer,
-          train_loader, valid_loader, epochs=20, noise=args.noise)
+    train(model, device, loss_fn, optimizer, train_loader,
+          valid_loader, epochs=args.epochs, noise=getattr(args, 'noise', 0))
