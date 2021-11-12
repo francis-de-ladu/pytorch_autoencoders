@@ -1,11 +1,10 @@
-import argparse
 import os
 
 import cv2
 import matplotlib.pyplot as plt
 import numpy as np
 import torch
-from autoencoders import AutoEncoder, ContractiveAE, DenoisingAE
+from autoencoders import AutoEncoder
 from torch import autograd, nn, optim
 from utils.setup import get_device
 
@@ -42,7 +41,7 @@ def extract_conv_layers(model):
 if __name__ == '__main__':
     device = get_device()
 
-    model = ContractiveAE(8)
+    model = AutoEncoder(16, name='sparse')
     model.load_state_dict(torch.load(f'../models/{model.name}.model'))
     model.to(device)
     model.eval()

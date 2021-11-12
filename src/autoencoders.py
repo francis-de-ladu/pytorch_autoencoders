@@ -65,23 +65,10 @@ class Decoder(nn.Module):
         return x
 
 
-class VanillaAE(nn.Module):
+class AutoEncoder(nn.Module):
     def __init__(self, h_dim, name):
         super().__init__()
         self.name = name
-        self.encoder = Encoder(h_dim)
-        self.decoder = Decoder(h_dim)
-
-    def forward(self, x):
-        x = self.encoder(x)
-        x = self.decoder(x)
-        return x
-
-
-class ContractiveAE(nn.Module):
-    def __init__(self, h_dim):
-        super().__init__()
-        self.name = 'contractive'
         self.encoder = Encoder(h_dim)
         self.decoder = Decoder(h_dim)
 
@@ -102,6 +89,15 @@ def contractive_loss(model, mse_loss, lamda):
     return loss_fn
 
 
+def sparse_loss(model, mse_loss, lamda):
+    def loss_fn(orig, reconst):
+        mse = mse_loss(orig, reconst)
+        h_l1 = model.hidden.abs().sum(dim=1)
+        sparse = torch.sum(h_l1, dim=0)
+        return mse + lamda * sparse
+    return loss_fn
+
+
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(
         description='Train some encoder model on the MNIST dataset.')
@@ -113,11 +109,15 @@ if __name__ == '__main__':
     vanilla_parser = subparsers.add_parser('vanilla')
     denoising_parser = subparsers.add_parser('denoising')
     contractive_parser = subparsers.add_parser('contractive')
+    sparse_parser = subparsers.add_parser('sparse')
 
     denoising_parser.add_argument('--noise', type=float, default=0.5)
     contractive_parser.add_argument(
         '--lambda', type=float, dest='lamda', default=1e-3)
     contractive_parser.add_argument('--noise', type=float, default=0)
+    sparse_parser.add_argument(
+        '--lambda', type=float, dest='lamda', default=1e-3)
+    sparse_parser.add_argument('--noise', type=float, default=0)
 
     args = parser.parse_args()
     print(args)
@@ -131,13 +131,14 @@ if __name__ == '__main__':
     train_loader, valid_loader, test_loader = load_dataset()
 
     # instantiate the model
-    loss_fn = nn.MSELoss(reduction='sum')
-    if args.ae in ('vanilla', 'denoising'):
-        model = VanillaAE(args.h_dim, name=args.ae)
-    elif args.ae == 'contractive':
-        model = ContractiveAE(args.h_dim)
-        loss_fn = partial(contractive_loss(model, loss_fn, args.lamda))
+    model = AutoEncoder(args.h_dim, name=args.ae)
     model.to(device)
+
+    loss_fn = nn.MSELoss(reduction='sum')
+    if args.ae == 'contractive':
+        loss_fn = partial(contractive_loss(model, loss_fn, args.lamda))
+    elif args.ae == 'sparse':
+        loss_fn = partial(sparse_loss(model, loss_fn, args.lamda))
 
     optimizer = optim.Adam(model.parameters(), lr=args.lr)
 
