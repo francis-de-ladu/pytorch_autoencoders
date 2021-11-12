@@ -1,3 +1,5 @@
+from functools import partial
+
 import torch
 from torch import nn, optim
 from utils.setup import get_device, load_dataset
@@ -62,10 +64,10 @@ class Decoder(nn.Module):
         return x
 
 
-class ContractiveAE(nn.Module):
+class AutoEncoder(nn.Module):
     def __init__(self, h_dim):
         super().__init__()
-        self.name = 'contractive'
+        self.name = 'autoencoder'
         self.encoder = Encoder(h_dim)
         self.decoder = Decoder(h_dim)
 
@@ -75,6 +77,43 @@ class ContractiveAE(nn.Module):
         return x
 
 
+class DenoisingAE(nn.Module):
+    def __init__(self, h_dim):
+        super().__init__()
+        self.name = 'denoising'
+        self.encoder = Encoder(h_dim)
+        self.decoder = Decoder(h_dim)
+
+    def forward(self, x):
+        x = self.encoder(x)
+        x = self.decoder(x)
+        return x
+
+
+class ContractiveAE(nn.Module):
+    def __init__(self, h_dim):
+        super().__init__()
+        self.name = 'contractive'
+        self.encoder = Encoder(h_dim)
+        self.decoder = Decoder(h_dim)
+
+    def forward(self, x):
+        self.hidden = self.encoder(x)
+        x = self.decoder(self.hidden)
+        return x
+
+
+def contractive_loss(model, mse_loss, lamda):
+    def loss_fn(orig, reconst):
+        mse = mse_loss(orig, reconst)
+        dh = model.hidden * (1 - model.hidden)
+        W = model.state_dict()['encoder.encoder_lin.1.weight']
+        W_squared_sum = W.pow(2).sum(dim=1).unsqueeze(1)
+        contractive = torch.sum(torch.mm(dh.pow(2), W_squared_sum), dim=0)
+        return mse + lamda * contractive
+    return loss_fn
+
+
 if __name__ == '__main__':
     device = get_device()
     print(f'Currently using `{device}` device.')
@@ -82,11 +121,11 @@ if __name__ == '__main__':
     torch.manual_seed(2021)
     train_loader, valid_loader, test_loader = load_dataset()
 
-    model = ContractiveAE(8)
+    model = AutoEncoder(16)
     model.to(device)
 
     loss_fn = nn.MSELoss(reduction='sum')
     optimizer = optim.Adam(model.parameters(), lr=1e-3)
 
     train(model, device, loss_fn, optimizer,
-          train_loader, valid_loader, epochs=20)
+          train_loader, valid_loader, epochs=20, noisy=False)

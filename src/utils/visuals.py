@@ -5,11 +5,11 @@ import numpy as np
 from utils.data import add_noise
 
 
-def plot_reconst(model, device, eval_loader, epoch, save_dir='../visuals'):
+def plot_reconst(model, device, eval_loader, epoch, noisy, save_dir='../visuals'):
     model.eval()
     for orig, _ in eval_loader:
         orig = orig.to(device)
-        if model.name == 'denoising':
+        if noisy:
             orig = add_noise(orig)
         reconst = model(orig)
         break

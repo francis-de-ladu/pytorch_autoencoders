@@ -1,11 +1,10 @@
 import os
-from itertools import product
 
 import cv2
 import matplotlib.pyplot as plt
 import numpy as np
 import torch
-from autoencoder import AutoEncoder
+from autoencoders import AutoEncoder, ContractiveAE, DenoisingAE
 from torch import autograd, nn, optim
 from utils.setup import get_device
 
@@ -42,7 +41,7 @@ def extract_conv_layers(model):
 if __name__ == '__main__':
     device = get_device()
 
-    model = AutoEncoder(8, 'denoising')
+    model = ContractiveAE(8)
     model.load_state_dict(torch.load(f'../models/{model.name}.model'))
     model.to(device)
     model.eval()

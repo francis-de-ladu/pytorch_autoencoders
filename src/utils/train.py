@@ -8,7 +8,7 @@ from utils.test import evaluate
 from utils.visuals import plot_reconst
 
 
-def train(model, device, loss_fn, optimizer, train_loader, eval_loader, epochs=10):
+def train(model, device, loss_fn, optimizer, train_loader, eval_loader, epochs=10, noisy=False):
     epoch_losses = []
     best_epoch = {'epoch': 0, 'loss': np.inf}
     for epoch in tqdm(range(epochs)):
@@ -19,7 +19,7 @@ def train(model, device, loss_fn, optimizer, train_loader, eval_loader, epochs=1
             orig = orig.to(device)
 
             # forward pass
-            if model.name == 'denoising':
+            if noisy:
                 with_noise = add_noise(orig)
                 reconst = model(with_noise)
             else:
@@ -46,7 +46,7 @@ def train(model, device, loss_fn, optimizer, train_loader, eval_loader, epochs=1
         print(f'Train loss: {mean_epoch_loss}')
         print(f'Eval loss: {eval_loss}')
 
-        plot_reconst(model, device, eval_loader, epoch)
+        plot_reconst(model, device, eval_loader, epoch, noisy=noisy)
 
 
 def save_if_best(model, epoch, eval_loss, best_epoch, save_dir='../models'):
