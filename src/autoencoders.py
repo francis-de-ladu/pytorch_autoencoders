@@ -1,5 +1,4 @@
 import argparse
-from functools import partial
 
 import torch
 from torch import nn, optim
@@ -26,6 +25,7 @@ class Encoder(nn.Module):
         self.encoder_lin = nn.Sequential(
             nn.ReLU(True),
             nn.Linear(3 * 3 * 32, h_dim),
+            nn.Sigmoid(),
         )
 
     def forward(self, x):
@@ -135,11 +135,13 @@ if __name__ == '__main__':
     model = AutoEncoder(args.h_dim, name=args.ae)
     model.to(device)
 
-    loss_fn = nn.MSELoss(reduction='sum')
+    mse_loss = nn.MSELoss(reduction='sum')
     if args.ae == 'contractive':
-        loss_fn = partial(contractive_loss(model, loss_fn, args.lamda))
+        loss_fn = contractive_loss(model, mse_loss, args.lamda)
     elif args.ae == 'sparse':
-        loss_fn = partial(sparse_loss(model, loss_fn, args.lamda))
+        loss_fn = sparse_loss(model, mse_loss, args.lamda)
+    else:
+        loss_fn = mse_loss
 
     optimizer = optim.Adam(model.parameters(), lr=args.lr)
 
