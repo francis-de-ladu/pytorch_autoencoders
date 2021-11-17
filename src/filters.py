@@ -41,7 +41,7 @@ def extract_conv_layers(model):
 if __name__ == '__main__':
     device = get_device()
 
-    model = AutoEncoder(16, name='sparse')
+    model = AutoEncoder(16, name='contractive')
     model.load_state_dict(torch.load(f'../models/{model.name}.model'))
     model.to(device)
     model.eval()

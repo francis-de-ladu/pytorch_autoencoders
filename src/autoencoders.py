@@ -84,7 +84,8 @@ def contractive_loss(model, mse_loss, lamda):
         mse = mse_loss(orig, reconst)
         dh = model.hidden * (1 - model.hidden)
         W = model.state_dict()['encoder.encoder_lin.1.weight']
-        W_squared_sum = W.pow(2).sum(dim=1).unsqueeze(1)
+        W.requires_grad = True
+        W_squared_sum = torch.sum(W.pow(2), dim=1).unsqueeze(1)
         contractive = torch.sum(torch.mm(dh.pow(2), W_squared_sum), dim=0)
         return mse + lamda * contractive
     return loss_fn
@@ -143,7 +144,7 @@ if __name__ == '__main__':
     else:
         loss_fn = mse_loss
 
-    optimizer = optim.Adam(model.parameters(), lr=args.lr)
+    optimizer = optim.AdamW(model.parameters(), lr=args.lr)
 
     train(model, device, loss_fn, optimizer, train_loader,
           valid_loader, epochs=args.epochs, noise=getattr(args, 'noise', 0))
